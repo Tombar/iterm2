@@ -3,6 +3,7 @@ package iterm2
 import (
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/Tombar/iterm2/api"
 	"github.com/Tombar/iterm2/client"
@@ -18,20 +19,71 @@ type App interface {
 	Activate(raiseAllWindows, ignoreOtherApps bool) error
 }
 
-// NewApp establishes a connection
-// with iTerm2 and returns an App.
-// Name is an optional parameter that
-// can be used to register your application
-// name with iTerm2 so that it doesn't
-// require explicit permissions every
-// time you run the plugin.
+// NewApp establishes a connection with iTerm2 and returns an App.
+//
+// For better error handling and user guidance, consider using
+// CheckPrerequisites() and RequestPermission() before calling NewApp():
+//
+//	if err := iterm2.CheckPrerequisites("MyApp"); err != nil {
+//	    if errors.Is(err, iterm2.ErrITerm2NotRunning) {
+//	        iterm2.LaunchITerm2()
+//	        iterm2.WaitForITerm2(30 * time.Second)
+//	    } else if errors.Is(err, iterm2.ErrPythonAPIDisabled) {
+//	        fmt.Println(iterm2.EnablePythonAPIGuide())
+//	        iterm2.OpenITerm2Preferences()
+//	        return
+//	    }
+//	}
+//	if err := iterm2.RequestPermission("MyApp"); err != nil {
+//	    // Handle permission denied
+//	}
+//	app, err := iterm2.NewApp("MyApp")
+//
+// NewApp returns typed errors that can be checked with errors.Is():
+//   - ErrITerm2NotRunning: iTerm2 is not running
+//   - ErrPythonAPIDisabled: Python API is not enabled in Preferences
+//   - ErrPermissionDenied: User denied permission for this application
+//
+// Name is used to register your application with iTerm2 so that it doesn't
+// require explicit permissions every time you run the plugin. The name appears
+// in iTerm2's authorization dialog on first run.
 func NewApp(name string) (App, error) {
 	c, err := client.New(name)
 	if err != nil {
-		return nil, err
+		// Enhance error with typed sentinels for better error handling
+		return nil, enhanceConnectionError(err, name)
 	}
 
 	return &app{c: c}, nil
+}
+
+// enhanceConnectionError wraps client connection errors with typed sentinels.
+// This allows users to programmatically detect and handle specific failure modes.
+func enhanceConnectionError(err error, appName string) error {
+	errMsg := strings.ToLower(err.Error())
+
+	// Check for iTerm2 not running (socket connection failure)
+	if strings.Contains(errMsg, "no such file or directory") ||
+		strings.Contains(errMsg, "connection refused") {
+		if !isITerm2Running() {
+			return fmt.Errorf("%w: %v", ErrITerm2NotRunning, err)
+		}
+		// If iTerm2 is running but socket doesn't exist, API is disabled
+		return fmt.Errorf("%w: %v", ErrPythonAPIDisabled, err)
+	}
+
+	// Check for Python API disabled
+	if isPythonAPIError(err) {
+		return fmt.Errorf("%w: %v", ErrPythonAPIDisabled, err)
+	}
+
+	// Check for permission denied
+	if isPermissionError(err) {
+		return fmt.Errorf("%w: %v", ErrPermissionDenied, err)
+	}
+
+	// Unknown error - return as-is
+	return err
 }
 
 type app struct {

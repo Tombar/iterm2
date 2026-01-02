@@ -1,14 +1,13 @@
 //go:build integration
 // +build integration
 
-package iterm2_test
+package iterm2
 
 import (
+	"errors"
 	"os"
 	"testing"
 	"time"
-
-	"github.com/Tombar/iterm2"
 )
 
 // TestIntegration_TabLifecycle tests the full lifecycle of tab operations with real iTerm2
@@ -17,7 +16,7 @@ func TestIntegration_TabLifecycle(t *testing.T) {
 		t.Skip("Set ITERM2_INTEGRATION_TESTS=1 to run integration tests")
 	}
 
-	app, err := iterm2.NewApp("iterm2-integration-test")
+	app, err := NewApp("iterm2-integration-test")
 	if err != nil {
 		t.Fatalf("Failed to connect to iTerm2: %v\nEnsure iTerm2 is running and Python API is enabled", err)
 	}
@@ -97,7 +96,7 @@ func TestIntegration_TabLifecycle(t *testing.T) {
 
 	t.Run("list_and_close_tabs", func(t *testing.T) {
 		// Create multiple tabs
-		var tabs []iterm2.Tab
+		var tabs []Tab
 		for i := 0; i < 3; i++ {
 			tab, err := window.CreateTab()
 			if err != nil {
@@ -158,7 +157,7 @@ func TestIntegration_ErrorCases(t *testing.T) {
 		t.Skip("Set ITERM2_INTEGRATION_TESTS=1 to run integration tests")
 	}
 
-	app, err := iterm2.NewApp("iterm2-integration-test")
+	app, err := NewApp("iterm2-integration-test")
 	if err != nil {
 		t.Fatalf("Failed to connect to iTerm2: %v", err)
 	}
@@ -184,5 +183,55 @@ func TestIntegration_ErrorCases(t *testing.T) {
 		err = tab.Close()
 		// Note: iTerm2 may return NOT_FOUND or handle gracefully
 		t.Logf("Second close returned: %v", err)
+	})
+}
+
+// TestIntegration_Prerequisites tests prerequisite checking with real iTerm2
+func TestIntegration_Prerequisites(t *testing.T) {
+	if os.Getenv("ITERM2_INTEGRATION_TESTS") == "" {
+		t.Skip("Set ITERM2_INTEGRATION_TESTS=1 to run integration tests")
+	}
+
+	t.Run("check_prerequisites", func(t *testing.T) {
+		// This should pass if iTerm2 is running with Python API enabled
+		err := CheckPrerequisites("iterm2-integration-test")
+		if err != nil {
+			t.Fatalf("CheckPrerequisites() failed: %v\nEnsure iTerm2 is running with Python API enabled", err)
+		}
+		t.Log("Prerequisites check passed")
+	})
+
+	t.Run("request_permission", func(t *testing.T) {
+		// This should succeed without showing dialog (already authorized from previous tests)
+		err := RequestPermission("iterm2-integration-test")
+		if err != nil {
+			// If Python API is disabled, skip this test gracefully
+			if errors.Is(err, ErrPythonAPIDisabled) {
+				t.Skipf("Python API is disabled: %v\nEnable in iTerm2 → Preferences → General → Magic → Python API", err)
+			}
+			t.Fatalf("RequestPermission() failed: %v", err)
+		}
+		t.Log("Permission check passed (already authorized)")
+	})
+
+	t.Run("helper_get_socket_path", func(t *testing.T) {
+		path, err := GetSocketPath()
+		if err != nil {
+			t.Fatalf("GetSocketPath() failed: %v", err)
+		}
+		t.Logf("Socket path: %s", path)
+
+		// Verify socket exists
+		if _, err := os.Stat(path); os.IsNotExist(err) {
+			t.Errorf("Socket file does not exist at %s", path)
+		}
+	})
+
+	t.Run("helper_enable_guide", func(t *testing.T) {
+		guide := EnablePythonAPIGuide()
+		if guide == "" {
+			t.Error("EnablePythonAPIGuide() returned empty string")
+		}
+		t.Logf("Guide content generated successfully (length: %d)", len(guide))
 	})
 }
