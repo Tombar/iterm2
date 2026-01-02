@@ -201,6 +201,18 @@ go test -tags=integration ./...
 export ITERM2_INTEGRATION_TESTS=1
 ```
 
+### Python API Not Enabled
+
+**Problem**: `AppleScript/tell: execution error: iTerm got an error: The Python API is not enabled.`
+
+**Solution**: Enable the Python API in iTerm2 preferences:
+1. Open iTerm2 → Preferences (⌘,)
+2. Go to the **General** tab
+3. Find the **Magic** section
+4. Check **"Enable Python API"**
+
+**Note**: Despite the name "Python API", this setting is required for all automation including Go programs. iTerm2 uses this setting to control access to its WebSocket-based automation protocol.
+
 ### Connection Failed
 
 **Problem**: `Failed to connect to iTerm2`
