@@ -3,7 +3,7 @@ package iterm2
 import (
 	"testing"
 
-	"marwan.io/iterm2/api"
+	"github.com/Tombar/iterm2/api"
 )
 
 // mockClient implements ClientInterface for testing

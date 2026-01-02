@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"marwan.io/iterm2"
+	"github.com/Tombar/iterm2"
 )
 
 // TestIntegration_TabLifecycle tests the full lifecycle of tab operations with real iTerm2

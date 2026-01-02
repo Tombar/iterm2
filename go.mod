@@ -1,4 +1,4 @@
-module marwan.io/iterm2
+module github.com/Tombar/iterm2
 
 go 1.15
 

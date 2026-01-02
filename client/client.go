@@ -13,10 +13,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Tombar/iterm2/api"
 	"github.com/andybrewer/mack"
 	"github.com/gorilla/websocket"
 	"google.golang.org/protobuf/proto"
-	"marwan.io/iterm2/api"
 )
 
 // New returns a new websocket connection that talks to the iTerm2

@@ -3,7 +3,7 @@ package iterm2
 import (
 	"fmt"
 
-	"marwan.io/iterm2/api"
+	"github.com/Tombar/iterm2/api"
 )
 
 // Session represents an iTerm2 Session which is a pane

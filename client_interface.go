@@ -1,6 +1,6 @@
 package iterm2
 
-import "marwan.io/iterm2/api"
+import "github.com/Tombar/iterm2/api"
 
 // ClientInterface defines the interface for communicating with iTerm2.
 // This abstraction enables testing by allowing mock implementations.

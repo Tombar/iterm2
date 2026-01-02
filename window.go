@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strconv"
 
-	"marwan.io/iterm2/api"
+	"github.com/Tombar/iterm2/api"
 )
 
 // Window represents an iTerm2 Window
