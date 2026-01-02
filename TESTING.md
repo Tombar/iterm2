@@ -22,11 +22,25 @@ go test -v -run TestGetID
 ### Coverage
 
 Unit tests cover:
-- `Tab.GetID()` - Returns tab identifier
-- `Tab.Close()` - Sends close request with proper status handling
-- `Tab.SetColor()` - Sets RGB color via profile properties
-- RGB normalization logic (0-255 → 0-1 range)
-- Error cases (tab not found, user declined, no sessions)
+- **Tab operations**:
+  - `Tab.GetID()` - Returns tab identifier
+  - `Tab.Close()` - Sends close request with proper status handling
+  - `Tab.SetColor()` - Sets RGB color via profile properties
+  - RGB normalization logic (0-255 → 0-1 range)
+  - Error cases (tab not found, user declined, no sessions)
+
+- **Prerequisite checking** (errors_test.go):
+  - Sentinel error detection with `errors.Is()`
+  - iTerm2 running detection
+  - Python API enabled detection
+  - Socket path construction
+  - Error message wrapping and classification
+
+- **Helper functions** (helpers_test.go):
+  - Socket path retrieval
+  - Python API setup guide generation
+  - WaitForITerm2 timeout behavior
+  - LaunchITerm2 idempotency
 
 ## Integration Tests
 
@@ -52,11 +66,20 @@ go test -tags=integration -v -run TestIntegration_TabLifecycle
 
 ### Integration Test Coverage
 
-- Full tab lifecycle (create → style → close)
-- Multiple color changes
-- Listing and closing multiple tabs
-- Tab operations with sessions
-- Error cases (closing already-closed tabs)
+- **Tab lifecycle** (TestIntegration_TabLifecycle):
+  - Full tab lifecycle (create → style → close)
+  - Multiple color changes
+  - Listing and closing multiple tabs
+  - Tab operations with sessions
+
+- **Error cases** (TestIntegration_ErrorCases):
+  - Closing already-closed tabs
+
+- **Prerequisites** (TestIntegration_Prerequisites):
+  - CheckPrerequisites() with real iTerm2
+  - RequestPermission() with authorization
+  - Helper function validation (socket path, guide generation)
+  - Graceful handling when Python API is disabled
 
 ### What Integration Tests Verify
 
@@ -127,16 +150,53 @@ go test -tags=integration ./...
 
 ```
 iterm2/
-├── tab_test.go              # Unit tests (always run)
+├── tab_test.go              # Tab operation unit tests
 │   ├── TestGetID
 │   ├── TestClose
 │   ├── TestSetColor
 │   └── TestSetColor_RGBNormalization
+├── errors_test.go           # Prerequisite checking unit tests
+│   ├── TestSentinelErrors
+│   ├── TestGetSocketPath
+│   ├── TestIsITerm2Running
+│   ├── TestIsPythonAPIEnabled
+│   ├── TestCheckPrerequisites_ErrorMessages
+│   └── TestEnhanceConnectionError
+├── helpers_test.go          # Helper function unit tests
+│   ├── TestGetSocketPath_Public
+│   ├── TestEnablePythonAPIGuide
+│   ├── TestWaitForITerm2_Timeout
+│   ├── TestLaunchITerm2_IdempotentWhenRunning
+│   └── TestOpenITerm2Preferences
 ├── integration_test.go      # Integration tests (opt-in)
 │   ├── TestIntegration_TabLifecycle
-│   └── TestIntegration_ErrorCases
+│   ├── TestIntegration_ErrorCases
+│   └── TestIntegration_Prerequisites
 └── TESTING.md              # This file
 ```
+
+## Testing Prerequisite Checking in Your Code
+
+When writing applications that use this library, you can test prerequisite handling:
+
+```go
+func TestMyApp_HandlesITerm2NotRunning(t *testing.T) {
+    // Prerequisite checks don't need mocking - they work on real system state
+    err := iterm2.CheckPrerequisites("test-app")
+
+    if err != nil {
+        // Test your error handling logic
+        if errors.Is(err, iterm2.ErrITerm2NotRunning) {
+            // Verify your app handles this gracefully
+        }
+    }
+}
+```
+
+The prerequisite functions are designed to be environment-aware:
+- `CheckPrerequisites()` checks actual system state (process list, socket files)
+- Tests automatically adapt based on whether iTerm2 is running
+- No mocking required for prerequisite testing
 
 ## Writing New Tests
 
@@ -183,6 +243,27 @@ func TestIntegration_NewFeature(t *testing.T) {
 
 ## Troubleshooting
 
+### Quick Diagnostic
+
+Use the prerequisite checking functions to diagnose issues:
+
+```go
+// Check if iTerm2 is running
+if err := iterm2.CheckPrerequisites("diagnostic"); err != nil {
+    if errors.Is(err, iterm2.ErrITerm2NotRunning) {
+        fmt.Println("iTerm2 is not running")
+    } else if errors.Is(err, iterm2.ErrPythonAPIDisabled) {
+        fmt.Println("Python API is not enabled")
+        fmt.Println(iterm2.EnablePythonAPIGuide())
+    }
+}
+
+// Check socket path
+if path, err := iterm2.GetSocketPath(); err == nil {
+    fmt.Printf("Socket path: %s\n", path)
+}
+```
+
 ### Integration Tests Not Running
 
 **Problem**: `testing: warning: no tests to run`
@@ -205,7 +286,14 @@ export ITERM2_INTEGRATION_TESTS=1
 
 **Problem**: `AppleScript/tell: execution error: iTerm got an error: The Python API is not enabled.`
 
-**Solution**: Enable the Python API in iTerm2 preferences:
+**Solution**: Use the built-in helper to get setup instructions:
+
+```go
+fmt.Println(iterm2.EnablePythonAPIGuide())
+iterm2.OpenITerm2Preferences()  // Opens preferences automatically
+```
+
+Or manually enable:
 1. Open iTerm2 → Preferences (⌘,)
 2. Go to the **General** tab
 3. Find the **Magic** section
@@ -217,13 +305,53 @@ export ITERM2_INTEGRATION_TESTS=1
 
 **Problem**: `Failed to connect to iTerm2`
 
+**Quick diagnosis**:
+```go
+if err := iterm2.CheckPrerequisites("test"); err != nil {
+    log.Printf("Prerequisite failed: %v", err)
+}
+```
+
 **Solutions**:
-1. Ensure iTerm2 is running
+1. Check if iTerm2 is running:
+   ```go
+   if err := iterm2.LaunchITerm2(); err != nil {
+       log.Fatal(err)
+   }
+   iterm2.WaitForITerm2(30 * time.Second)
+   ```
+
 2. Enable Python API: Preferences → General → Magic
-3. Check socket exists: `ls ~/Library/Application\ Support/iTerm2/private/socket`
+   ```go
+   iterm2.OpenITerm2Preferences()
+   ```
+
+3. Verify socket exists:
+   ```bash
+   ls ~/Library/Application\ Support/iTerm2/private/socket
+   ```
+   Or programmatically:
+   ```go
+   path, _ := iterm2.GetSocketPath()
+   fmt.Println(path)
+   ```
 
 ### Permission Denied
 
 **Problem**: iTerm2 shows authorization dialog
 
-**Solution**: Click "Allow" - the app name `iterm2-integration-test` will be remembered for future runs.
+**Solution**: Click "Allow" - the app name will be remembered for future runs.
+
+**Testing permission proactively**:
+```go
+if err := iterm2.RequestPermission("myapp"); err != nil {
+    if errors.Is(err, iterm2.ErrPermissionDenied) {
+        fmt.Println("User denied permission. Please approve in iTerm2 settings.")
+    }
+}
+```
+
+This function:
+- Triggers the authorization dialog on first run
+- Returns immediately on subsequent runs (permission is cached)
+- Allows graceful error handling before attempting real operations

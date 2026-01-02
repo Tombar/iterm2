@@ -8,16 +8,103 @@ go get github.com/Tombar/iterm2
 
 ### Usage
 
+#### Basic Usage
+
 ```golang
 package main
 
+import (
+    "fmt"
+    "github.com/Tombar/iterm2"
+)
+
 func main() {
     app, err := iterm2.NewApp("MyCoolPlugin")
-    handle(err)
+    if err != nil {
+        fmt.Printf("Failed to connect: %v\n", err)
+        return
+    }
     defer app.Close()
+
     // use app to create or list windows, tabs, and sessions and send various commands to the terminal.
 }
 ```
+
+#### Robust Usage with Prerequisite Checking
+
+For production use, check prerequisites before connecting to provide better error messages:
+
+```golang
+package main
+
+import (
+    "errors"
+    "fmt"
+    "time"
+    "github.com/Tombar/iterm2"
+)
+
+func main() {
+    // Check if iTerm2 is running and Python API is enabled
+    if err := iterm2.CheckPrerequisites("MyCoolPlugin"); err != nil {
+        if errors.Is(err, iterm2.ErrITerm2NotRunning) {
+            fmt.Println("iTerm2 is not running. Launching...")
+            if err := iterm2.LaunchITerm2(); err != nil {
+                fmt.Printf("Failed to launch iTerm2: %v\n", err)
+                return
+            }
+            // Wait for iTerm2 to be ready
+            if err := iterm2.WaitForITerm2(30 * time.Second); err != nil {
+                fmt.Printf("iTerm2 did not start in time: %v\n", err)
+                return
+            }
+        } else if errors.Is(err, iterm2.ErrPythonAPIDisabled) {
+            fmt.Println(iterm2.EnablePythonAPIGuide())
+            iterm2.OpenITerm2Preferences()
+            return
+        } else {
+            fmt.Printf("Prerequisites check failed: %v\n", err)
+            return
+        }
+    }
+
+    // Request permission (shows dialog on first run)
+    if err := iterm2.RequestPermission("MyCoolPlugin"); err != nil {
+        if errors.Is(err, iterm2.ErrPermissionDenied) {
+            fmt.Println("Permission denied. Please approve in iTerm2 settings.")
+        }
+        return
+    }
+
+    // Connect to iTerm2
+    app, err := iterm2.NewApp("MyCoolPlugin")
+    if err != nil {
+        fmt.Printf("Failed to connect: %v\n", err)
+        return
+    }
+    defer app.Close()
+
+    // Your automation logic here...
+}
+```
+
+### Error Handling
+
+The library provides typed errors that you can check with `errors.Is()`:
+
+- `ErrITerm2NotRunning` - iTerm2 is not running
+- `ErrPythonAPIDisabled` - Python API is not enabled in Preferences
+- `ErrPermissionDenied` - User denied permission for the application
+
+### Helper Functions
+
+- `CheckPrerequisites(appName)` - Verify iTerm2 is running and API is enabled
+- `RequestPermission(appName)` - Test authorization (triggers dialog on first run)
+- `LaunchITerm2()` - Launch iTerm2 if not already running
+- `WaitForITerm2(timeout)` - Wait for iTerm2 to be ready
+- `GetSocketPath()` - Get the Unix socket path for debugging
+- `EnablePythonAPIGuide()` - Get formatted instructions for enabling the Python API
+- `OpenITerm2Preferences()` - Open iTerm2 Preferences window
 
 ### How do I actually run the script?
 
