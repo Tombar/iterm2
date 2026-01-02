@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"marwan.io/iterm2/api"
-	"marwan.io/iterm2/client"
 )
 
 // Tab abstracts an iTerm2 window tab
@@ -17,7 +16,7 @@ type Tab interface {
 }
 
 type tab struct {
-	c        *client.Client
+	c        ClientInterface
 	id       string
 	windowID string
 }

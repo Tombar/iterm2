@@ -5,7 +5,6 @@ import (
 	"strconv"
 
 	"marwan.io/iterm2/api"
-	"marwan.io/iterm2/client"
 )
 
 // Window represents an iTerm2 Window
@@ -17,7 +16,7 @@ type Window interface {
 }
 
 type window struct {
-	c       *client.Client
+	c       ClientInterface
 	id      string
 	session string
 }
