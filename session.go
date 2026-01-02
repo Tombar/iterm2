@@ -3,8 +3,7 @@ package iterm2
 import (
 	"fmt"
 
-	"marwan.io/iterm2/api"
-	"marwan.io/iterm2/client"
+	"github.com/Tombar/iterm2/api"
 )
 
 // Session represents an iTerm2 Session which is a pane
@@ -23,7 +22,7 @@ type SplitPaneOptions struct {
 }
 
 type session struct {
-	c  *client.Client
+	c  ClientInterface
 	id string
 }
 

@@ -10,8 +10,8 @@ package scaffold
 import (
 	"fmt"
 
+	"github.com/Tombar/iterm2"
 	"golang.org/x/sync/errgroup"
-	"marwan.io/iterm2"
 )
 
 // WindowSpec specifies a window configuration.
